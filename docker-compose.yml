@@ -18,6 +18,7 @@ x-airflow-common: &airflow-common
     - ./airflow/dags:/opt/airflow/dags
     - ./scraper:/opt/airflow/scraper
     - ./analyzer:/opt/airflow/analyzer
+    - ./notifier:/opt/airflow/notifier
     - ./data:/opt/airflow/data
   depends_on:
     postgres:
