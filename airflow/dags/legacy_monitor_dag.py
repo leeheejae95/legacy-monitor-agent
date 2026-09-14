@@ -1,6 +1,6 @@
 """
 [자동화 스케줄]
-매일 09:30 실행 — Playwright 다운로드 → Ollama 분석 → 리포트 생성
+매일 09:30 실행 — Playwright 다운로드 → Ollama 분석 → 리포트 생성 → Slack 알림
 """
 from datetime import datetime, timedelta
 from airflow import DAG
@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from scraper.scraper import run as scrape
 from analyzer.analyzer import run as analyze
+from notifier.notifier import run as notify
 
 default_args = {
     "owner": "legacy-monitor",
@@ -39,6 +40,13 @@ with DAG(
         report = analyze(date_str) # analyzer.py의 run() 실행
         print(f"[DAG] 리포트 생성: {report}")
 
+    def notify_task(**context):
+        from pathlib import Path
+        date_str = context["ds_nodash"]
+        report_path = Path(f"/opt/airflow/data/downloads/{date_str}/report.md")
+        notify(report_path, date_str) # notifier.py의 run() 실행
+        print(f"[DAG] Slack 알림 전송 완료")
+
     t1 = PythonOperator(
         task_id="scrape_excel",
         python_callable=scrape_task,
@@ -49,4 +57,9 @@ with DAG(
         python_callable=analyze_task,
     )
 
-    t1 >> t2
+    t3 = PythonOperator(
+        task_id="slack_notify",
+        python_callable=notify_task,
+    )
+
+    t1 >> t2 >> t3
