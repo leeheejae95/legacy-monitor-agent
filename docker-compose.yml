@@ -1,0 +1,53 @@
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  build: .
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    SITE_URL: http://host.docker.internal:8080
+    SITE_USERNAME: admin
+    SITE_PASSWORD: admin1234
+    OLLAMA_HOST: http://host.docker.internal:11434
+    OLLAMA_MODEL: llama3.2
+    DOWNLOAD_DIR: /opt/airflow/data/downloads
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./scraper:/opt/airflow/scraper
+    - ./analyzer:/opt/airflow/analyzer
+    - ./data:/opt/airflow/data
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+
+  airflow-init: # DB초기화 및 관리자 계정 생성
+    <<: *airflow-common
+    command: bash -c "airflow db migrate && airflow users create --username admin --password admin1234 --firstname Admin --lastname User --role Admin --email admin@example.com"
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver # UI서버
+    ports:
+      - "8081:8080"
+    restart: always # 계속 실행
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler # 24시간 DAG 감시
+    restart: always # 계속 실행
