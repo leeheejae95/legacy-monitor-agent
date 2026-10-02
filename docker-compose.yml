@@ -1,5 +1,4 @@
 version: '3.8'
-
 x-airflow-common: &airflow-common
   build: .
   environment:
@@ -32,6 +31,7 @@ services:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
+    restart: always
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
